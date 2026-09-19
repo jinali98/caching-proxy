@@ -1,0 +1,22 @@
+# Compiled binary — `go build` drops it here, named after the module
+/caching-proxy
+*.exe
+
+# Test and profiling output
+*.test
+*.out
+coverage.html
+
+# Cache directory (Stage 6 — disk-backed cache)
+/cache/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# macOS
+.DS_Store
+
+# Claude Code local settings (machine-specific; settings.json is shareable)
+.claude/settings.local.json
