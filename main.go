@@ -4,6 +4,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -12,7 +14,6 @@ import (
 )
 
 func main() {
-
 	port := flag.Int("port", 0, "port to run the caching proxy on")
 	origin := flag.String("origin", "", "origin server URL to forward requests to")
 	clearCache := flag.Bool("clear-cache", false, "clear the cache and exit")
@@ -33,7 +34,6 @@ func main() {
 // run checks the settings, builds the proxy, and starts listening.
 // It returns an error instead of exiting, so main stays in charge of quitting.
 func run(port int, origin string) error {
-
 	if err := validateOrigin(origin); err != nil {
 		return err
 	}
@@ -65,7 +65,6 @@ type proxy struct {
 }
 
 func (p *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
 	// Where this request should really go.
 	target := p.origin + r.URL.RequestURI()
 
@@ -78,18 +77,39 @@ func (p *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	for name, values := range r.Header {
+
+		if name == "Connection" {
+			continue
+		}
+		for _, v := range values {
+			req.Header.Add(name, v)
+		}
+	}
+
 	res, err := p.client.Do(req)
 	if err != nil {
 		http.Error(w, "origin unreachable", http.StatusBadGateway)
 		return
 	}
-
 	defer res.Body.Close()
 
+	for name, values := range res.Header {
+		if name == "Connection" {
+			continue
+		}
+		for _, v := range values {
+			w.Header().Add(name, v)
+		}
+	}
+
+	w.WriteHeader(res.StatusCode)
+	if _, err := io.Copy(w, res.Body); err != nil {
+		log.Printf("copying response body for %s: %v", target, err)
+	}
 }
 
 func validatePort(p int) error {
-
 	if p < 1 || p > 65535 {
 		return fmt.Errorf("invalid port %d: must be between 1 and 65535", p)
 	}
@@ -104,7 +124,6 @@ func validateOrigin(o string) error {
 
 	u, err := url.Parse(o)
 	if err != nil {
-
 		return fmt.Errorf("invalid origin %q: %w", o, err)
 	}
 
